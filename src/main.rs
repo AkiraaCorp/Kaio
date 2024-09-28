@@ -5,11 +5,11 @@ use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use tokio;
 use tokio::time::{sleep, Duration};
 use num_bigint::BigUint;
-use serde::{Deserialize, Serialize};
 use dotenv::dotenv;
 use std::env;
 use url::Url;
 use sqlx::types::BigDecimal;
+use num_traits::cast::ToPrimitive;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -23,8 +23,8 @@ struct UserBet {
 
 #[derive(Debug)]
 struct Odds {
-    no_probability: BigUint,
-    yes_probability: BigUint,
+    no_probability: u64,
+    yes_probability: u64,
 }
 
 #[tokio::main]
@@ -66,13 +66,14 @@ async fn setup_database() -> Pool<Postgres> {
         "CREATE TABLE IF NOT EXISTS bet_placed (
             id SERIAL PRIMARY KEY,
             bet BOOLEAN NOT NULL,
-            amount NUMERIC(78, 0) NOT NULL,
+            amount NUMERIC(78, 18) NOT NULL,
             has_claimed BOOLEAN NOT NULL,
-            claimable_amount NUMERIC(78, 0) NOT NULL,
-            no_probability NUMERIC(78, 0) NOT NULL,
-            yes_probability NUMERIC(78, 0) NOT NULL,
+            claimable_amount NUMERIC(78, 18) NOT NULL,
+            no_probability BIGINT NOT NULL,
+            yes_probability BIGINT NOT NULL,
             block_number BIGINT NOT NULL,
             transaction_hash TEXT NOT NULL,
+            from_address TEXT NOT NULL,
             UNIQUE (block_number, transaction_hash)
         )",
     )
@@ -162,8 +163,6 @@ async fn process_block(
         block_number, contract_address
     );
 
-    let block_id = BlockId::Number(block_number);
-
     let filter = EventFilter {
         from_block: Some(BlockId::Number(block_number)),
         to_block: Some(BlockId::Number(block_number)),
@@ -199,6 +198,7 @@ async fn process_block(
                 &decoded_event,
                 block_number,
                 &event.transaction_hash.to_fixed_hex_string(),
+                &event.from_address.to_fixed_hex_string(),
             )
             .await;
         } else {
@@ -207,25 +207,32 @@ async fn process_block(
     }
 }
 
+fn field_element_to_u64(fe: Felt) -> u64 {
+    fe.to_biguint().to_u64().unwrap()
+}
+
+
 fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
-    if data.len() >= 10 {
+    println!("Event data length: {}", data.len());
+    for (i, felt) in data.iter().enumerate() {
+        println!("data[{}]: {}", i, felt);
+    }
+
+    if data.len() >= 6 {
         let bet = data[0];
-        let amount_high = data[1];
-        let amount_low = data[2];
+        let amount_felt = data[1];
         let has_claimed = data[3];
-        let claimable_amount_high = data[4];
-        let claimable_amount_low = data[5];
-        let no_probability_high = data[6];
-        let no_probability_low = data[7];
-        let yes_probability_high = data[8];
-        let yes_probability_low = data[9];
+        let claimable_amount_felt = data[4];
+        let no_probability = data[6];
+        let yes_probability = data[8];
 
         let bet_bool = field_element_to_bool(bet);
-        let amount = uint256_from_field_elements(amount_high, amount_low);
+        let amount = amount_felt.to_biguint();
         let has_claimed_bool = field_element_to_bool(has_claimed);
-        let claimable_amount = uint256_from_field_elements(claimable_amount_high, claimable_amount_low);
-        let no_probability = uint256_from_field_elements(no_probability_high, no_probability_low);
-        let yes_probability = uint256_from_field_elements(yes_probability_high, yes_probability_low);
+        let claimable_amount = claimable_amount_felt.to_biguint();
+
+        let no_probability_value = field_element_to_u64(no_probability);
+        let yes_probability_value = field_element_to_u64(yes_probability);
 
         let user_bet = UserBet {
             bet: bet_bool,
@@ -233,38 +240,32 @@ fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
             has_claimed: has_claimed_bool,
             claimable_amount,
             user_odds: Odds {
-                no_probability,
-                yes_probability,
+                no_probability: no_probability_value,
+                yes_probability: yes_probability_value,
             },
         };
 
         Some(user_bet)
     } else {
+        println!("Event data is too short.");
         None
     }
 }
 
+
 fn field_element_to_bool(fe: Felt) -> bool {
     fe != Felt::ZERO
-}
-
-fn uint256_from_field_elements(high: Felt, low: Felt) -> BigUint {
-    let high_bytes = high.to_bytes_be();
-    let low_bytes = low.to_bytes_be();
-
-    let high_uint = BigUint::from_bytes_be(&high_bytes);
-    let low_uint = BigUint::from_bytes_be(&low_bytes);
-
-    (high_uint << 128) + low_uint
 }
 
 fn bet_placed_event_key() -> Felt {
     get_selector_from_name("BetPlace").expect("Failed to compute event selector")
 }
 
-fn biguint_to_bigdecimal(value: &BigUint) -> BigDecimal {
+fn biguint_to_bigdecimal_scaled(value: &BigUint, scale: u32) -> BigDecimal {
     let value_str = value.to_str_radix(10);
-    BigDecimal::from_str(&value_str).unwrap()
+    let big_decimal_value = BigDecimal::from_str(&value_str).unwrap();
+    let scaling_factor = BigDecimal::from(10u64.pow(scale));
+    big_decimal_value / scaling_factor
 }
 
 async fn store_event(
@@ -272,6 +273,7 @@ async fn store_event(
     event: &UserBet,
     block_number: u64,
     transaction_hash: &str,
+    from_address: &str,
 ) {
     sqlx::query(
         "INSERT INTO bet_placed (
@@ -282,20 +284,21 @@ async fn store_event(
             no_probability,
             yes_probability,
             block_number,
-            transaction_hash
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            transaction_hash,
+            \"from_address\"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (block_number, transaction_hash) DO NOTHING",
     )
     .bind(event.bet)
-    .bind(biguint_to_bigdecimal(&event.amount))
+    .bind(biguint_to_bigdecimal_scaled(&event.amount, 18)) 
     .bind(event.has_claimed)
-    .bind(biguint_to_bigdecimal(&event.claimable_amount))
-    .bind(biguint_to_bigdecimal(&event.user_odds.no_probability))
-    .bind(biguint_to_bigdecimal(&event.user_odds.yes_probability))
+    .bind(biguint_to_bigdecimal_scaled(&event.claimable_amount, 18)) 
+    .bind(event.user_odds.no_probability as i64)
+    .bind(event.user_odds.yes_probability as i64)
     .bind(block_number as i64)
     .bind(transaction_hash)
+    .bind(from_address)
     .execute(pool)
     .await
     .expect("Failed to store event in database");
 }
-
