@@ -189,7 +189,6 @@ async fn process_block(
     }
 
     for event in events_page.events {
-        println!("Event data: {:?}", event.data);
     
         if let Some(decoded_event) = parse_bet_placed_event(&event.data) {
             println!("✨ New BetPlace event: {:?}", decoded_event);
