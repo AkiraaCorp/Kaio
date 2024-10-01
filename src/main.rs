@@ -82,29 +82,29 @@ async fn setup_database() -> Pool<Postgres> {
     .expect("Failed to create bet_placed table");
 
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS app_state (
+        "CREATE TABLE IF NOT EXISTS block_state (
             id INTEGER PRIMARY KEY,
             last_processed_block BIGINT NOT NULL
         )",
     )
     .execute(&pool)
     .await
-    .expect("Failed to create app_state table");
+    .expect("Failed to create block_state table");
 
     sqlx::query(
-        "INSERT INTO app_state (id, last_processed_block)
+        "INSERT INTO block_state (id, last_processed_block)
          VALUES (1, 0)
          ON CONFLICT (id) DO NOTHING",
     )
     .execute(&pool)
     .await
-    .expect("Failed to initialize app_state");
+    .expect("Failed to initialize block_state");
 
     pool
 }
 
 async fn get_last_processed_block(pool: &Pool<Postgres>) -> u64 {
-    let row: (i64,) = sqlx::query_as("SELECT last_processed_block FROM app_state WHERE id = 1")
+    let row: (i64,) = sqlx::query_as("SELECT last_processed_block FROM block_state WHERE id = 1")
         .fetch_one(pool)
         .await
         .expect("Failed to fetch last_processed_block");
@@ -113,7 +113,7 @@ async fn get_last_processed_block(pool: &Pool<Postgres>) -> u64 {
 }
 
 async fn update_last_processed_block(pool: &Pool<Postgres>, block_number: u64) {
-    sqlx::query("UPDATE app_state SET last_processed_block = $1 WHERE id = 1")
+    sqlx::query("UPDATE block_state SET last_processed_block = $1 WHERE id = 1")
         .bind(block_number as i64)
         .execute(pool)
         .await
@@ -213,9 +213,6 @@ fn field_element_to_u64(fe: Felt) -> u64 {
 
 fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
     println!("Event data length: {}", data.len());
-    for (i, felt) in data.iter().enumerate() {
-        println!("data[{}]: {}", i, felt);
-    }
 
     if data.len() >= 6 {
         let bet = data[0];
