@@ -63,7 +63,7 @@ async fn setup_database() -> Pool<Postgres> {
         .expect("Failed to create pool");
 
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS bet_placed (
+        "CREATE TABLE IF NOT EXISTS bets (
             id SERIAL PRIMARY KEY,
             bet BOOLEAN NOT NULL,
             amount NUMERIC(78, 18) NOT NULL,
@@ -79,7 +79,7 @@ async fn setup_database() -> Pool<Postgres> {
     )
     .execute(&pool)
     .await
-    .expect("Failed to create bet_placed table");
+    .expect("Failed to create bets table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS block_state (
@@ -272,7 +272,7 @@ async fn store_event(
     from_address: &str,
 ) {
     sqlx::query(
-        "INSERT INTO bet_placed (
+        "INSERT INTO bets (
             bet,
             amount,
             has_claimed,
