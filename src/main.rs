@@ -19,6 +19,7 @@ struct UserBet {
     has_claimed: bool,
     claimable_amount: BigUint,
     user_odds: Odds,
+    sender_address: String,
 }
 
 #[derive(Debug)]
@@ -71,6 +72,7 @@ async fn setup_database() -> Pool<Postgres> {
             claimable_amount NUMERIC(78, 18) NOT NULL,
             no_probability BIGINT NOT NULL,
             yes_probability BIGINT NOT NULL,
+            sender_address TEXT NOT NULL,
             block_number BIGINT NOT NULL,
             transaction_hash TEXT NOT NULL,
             from_address TEXT NOT NULL,
@@ -221,6 +223,7 @@ fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
         let claimable_amount_felt = data[4];
         let no_probability = data[6];
         let yes_probability = data[8];
+        let sender_address = data[9].to_fixed_hex_string();
 
         let bet_bool = field_element_to_bool(bet);
         let amount = amount_felt.to_biguint();
@@ -239,6 +242,7 @@ fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
                 no_probability: no_probability_value,
                 yes_probability: yes_probability_value,
             },
+            sender_address,
         };
 
         Some(user_bet)
@@ -279,6 +283,7 @@ async fn store_event(
             claimable_amount,
             no_probability,
             yes_probability,
+            sender_address,
             block_number,
             transaction_hash,
             \"from_address\"
@@ -291,6 +296,7 @@ async fn store_event(
     .bind(biguint_to_bigdecimal_scaled(&event.claimable_amount, 18)) 
     .bind(event.user_odds.no_probability as i64)
     .bind(event.user_odds.yes_probability as i64)
+    .bind(&event.sender_address)
     .bind(block_number as i64)
     .bind(transaction_hash)
     .bind(from_address)
