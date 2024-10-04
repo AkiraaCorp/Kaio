@@ -32,18 +32,14 @@ struct Odds {
 async fn main() {
     dotenv().ok();
 
-    let rpc_url = Url::parse("https://free-rpc.nethermind.io/sepolia-juno/")
+    let rpc_url = Url::parse("https://starknet-sepolia.blastapi.io/05d8c1e9-70d6-41e4-a849-d2dff1e62b3b")
         .expect("Invalid RPC URL"); 
     let transport = HttpTransport::new(rpc_url);
     let provider = JsonRpcClient::new(transport);
 
     let contract_addresses = vec![
-        Felt::from_hex("0x01244abdf52ee7eab1c40f34f25017efa4873d7c470da99d3799214b9754e454")
+        Felt::from_hex("0x00f02b88184e4b8a8b72ba0bfd294c9c9ce915b49fcc74097e30bd90623d7002")
             .expect("Invalid contract address"),
-        Felt::from_hex("0x000ff2a1dfe1235226944c0d4db56d0752f886aebd3e6eb7dc96c4e9b2a6085e")
-            .expect("Invalid contract address"),
-        Felt::from_hex("0x03465a5b8edc64e400d1b32d7e684a9b4f9dbf99f9e643934e902371ab51b387")
-            .expect("Invalid contract address"), // ici vecteur d'event, on add to nos contract a listen
     ];
 
     let pool = setup_database().await;
@@ -65,26 +61,7 @@ async fn setup_database() -> Pool<Postgres> {
         .await
         .expect("Failed to create pool");
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS bets (
-            id SERIAL PRIMARY KEY,
-            bet BOOLEAN NOT NULL,
-            amount NUMERIC(78, 18) NOT NULL,
-            has_claimed BOOLEAN NOT NULL,
-            claimable_amount NUMERIC(78, 18) NOT NULL,
-            no_probability BIGINT NOT NULL,
-            yes_probability BIGINT NOT NULL,
-            user_address TEXT NOT NULL,
-            block_number BIGINT NOT NULL,
-            transaction_hash TEXT NOT NULL,
-            event_address TEXT NOT NULL,
-            UNIQUE (block_number, transaction_hash)
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create bets table");
-
+  
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS block_state (
             id INTEGER PRIMARY KEY,
@@ -225,7 +202,7 @@ fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
         let claimable_amount_felt = data[4];
         let no_probability = data[6];
         let yes_probability = data[8];
-        let user_address = data[9].to_fixed_hex_string();
+        let user_address = data[10].to_fixed_hex_string();
 
         let bet_bool = field_element_to_bool(bet);
         let amount = amount_felt.to_biguint();
@@ -277,10 +254,13 @@ async fn store_event(
     transaction_hash: &str,
     from_address: &str,
 ) {
+    let bet:i32 = event.bet.into();
+    let is_claimable = false;
     sqlx::query(
         "INSERT INTO bets (
             bet,
             amount,
+            is_claimable,
             has_claimed,
             claimable_amount,
             no_probability,
@@ -289,11 +269,12 @@ async fn store_event(
             block_number,
             transaction_hash,
             \"event_address\"
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (block_number, transaction_hash) DO NOTHING",
     )
-    .bind(event.bet)
+    .bind(bet)
     .bind(biguint_to_bigdecimal_scaled(&event.amount, 18)) 
+    .bind(is_claimable)    
     .bind(event.has_claimed)
     .bind(biguint_to_bigdecimal_scaled(&event.claimable_amount, 18)) 
     .bind(event.user_odds.no_probability as i64)
