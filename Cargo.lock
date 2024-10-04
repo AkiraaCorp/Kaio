@@ -3,22 +3,6 @@
 version = 3
 
 [[package]]
-name = "Kaio"
-version = "0.1.0"
-dependencies = [
- "bigdecimal 0.4.5",
- "dotenv",
- "num-bigint",
- "num-traits",
- "serde",
- "serde_json",
- "sqlx",
- "starknet",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -962,6 +946,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1868808506b929d7b0cfa8f75951347aa71bb21144b7791bae35d9bccfcfe37a"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kaio"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal 0.4.5",
+ "dotenv",
+ "num-bigint",
+ "num-traits",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "starknet",
+ "tokio",
+ "url",
 ]
 
 [[package]]
