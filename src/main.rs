@@ -32,7 +32,9 @@ struct Odds {
 async fn main() {
     dotenv().ok();
 
-    let rpc_url = Url::parse("https://starknet-sepolia.blastapi.io/05d8c1e9-70d6-41e4-a849-d2dff1e62b3b")
+    let endpoint = env::var("RPC_ENDPOINT").expect("RPC_ENDPOINT must be set");
+
+    let rpc_url = Url::parse(&endpoint)
         .expect("Invalid RPC URL"); 
     let transport = HttpTransport::new(rpc_url);
     let provider = JsonRpcClient::new(transport);
