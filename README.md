@@ -1,7 +1,7 @@
-<h1 align="center" style="font-size: 3em;">Kaio</h1>
+<h1 align="center" style="font-size: 3em;">Kaio 📡</h1>
 
 <div align="center">
-  <img src="path/to/your-image.png" alt="Kaio Logo" width="300"/>
+  <img src="Kaio.png" alt="Kaio Logo" width="300"/>
 </div>
 
 **Kaio** is a Rust-based blockchain event listener and processor specifically designed to interact with the StarkNet blockchain. It listens for specific events emitted from smart contracts, parses them, and stores the results in a PostgreSQL database. Kaio is intended to help developers monitor and react to smart contract events on StarkNet, providing an efficient way to build real-time data pipelines for decentralized applications.
