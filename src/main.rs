@@ -11,6 +11,8 @@ use url::Url;
 use sqlx::types::BigDecimal;
 use num_traits::cast::ToPrimitive;
 use std::str::FromStr;
+use env_logger::Env;
+use log::{info, error };
 
 #[derive(Debug)]
 struct UserBet {
@@ -31,6 +33,8 @@ struct Odds {
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let endpoint = env::var("RPC_ENDPOINT").expect("RPC_ENDPOINT must be set");
 
@@ -115,11 +119,11 @@ async fn process_new_events(
         .expect("Failed to get latest block number");
 
     //le last block mettre direct en dur dans la DB pour le premier pour ne pas avoir a tout sync from 0
-    println!("Last processed block: {}", last_processed_block);
-    println!("Latest block: {}", latest_block);
+    info!("Last processed block: {}", last_processed_block);
+    info!("Latest block: {}", latest_block);
 
     if latest_block > last_processed_block {
-        println!(
+        info!(
             "🔀 Processing blocks from {} to {}",
             last_processed_block + 1,
             latest_block
@@ -131,7 +135,7 @@ async fn process_new_events(
         }
         update_last_processed_block(pool, latest_block).await;
     } else {
-        println!("No new blocks to process.");
+        info!(" 📡 No new blocks to process.");
     }
 }
 
@@ -141,7 +145,7 @@ async fn process_block(
     contract_address: Felt,
     pool: &Pool<Postgres>,
 ) {
-    println!(
+    info!(
         "Fetching events for block {} on contract {}",
         block_number, contract_address
     );
@@ -157,15 +161,15 @@ async fn process_block(
     let events_page = match provider.get_events(filter, None, chunk_size).await {
         Ok(page) => page,
         Err(err) => {
-            eprintln!("Error fetching events: {}", err);
+            error!("Error fetching events: {}", err);
             return;
         }
     };
 
-    println!("Number of events fetched: {}", events_page.events.len());
+    info!("Number of events fetched: {}", events_page.events.len());
 
     if events_page.events.is_empty() {
-        println!(
+        info!(
             "No events found for block {} on contract {}",
             block_number, contract_address
         );
@@ -174,7 +178,7 @@ async fn process_block(
     for event in events_page.events {
     
         if let Some(decoded_event) = parse_bet_placed_event(&event.data) {
-            println!("✨ New BetPlace event: {:?}", decoded_event);
+            info!("✨ New BetPlace event: {:?}", decoded_event);
             store_event(
                 pool,
                 &decoded_event,
@@ -184,7 +188,7 @@ async fn process_block(
             )
             .await;
         } else {
-            println!("❌Failed to parse BetPlace event");
+            info!("❌Failed to parse BetPlace event");
         }
     }
 }
@@ -195,7 +199,7 @@ fn field_element_to_u64(fe: Felt) -> u64 {
 
 
 fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
-    println!("Event data length: {}", data.len());
+    info!("Event data length: {}", data.len());
 
     if data.len() >= 6 {
         let bet = data[0];
@@ -228,7 +232,7 @@ fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
 
         Some(user_bet)
     } else {
-        println!("Event data is too short.");
+        info!("Event data is too short.");
         None
     }
 }
