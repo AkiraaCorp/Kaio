@@ -12,7 +12,7 @@ use sqlx::types::BigDecimal;
 use num_traits::cast::ToPrimitive;
 use std::str::FromStr;
 use env_logger::Env;
-use log::{info, warn, error };
+use log::{info, error };
 
 #[derive(Debug)]
 struct UserBet {
