@@ -12,7 +12,7 @@ use sqlx::types::BigDecimal;
 use num_traits::cast::ToPrimitive;
 use std::str::FromStr;
 use env_logger::Env;
-use log::{info, error };
+use log::{info, warn, error };
 
 #[derive(Debug)]
 struct UserBet {
@@ -34,6 +34,16 @@ struct Odds {
 async fn main() {
     dotenv().ok();
 
+    println!(
+        "                                                             
+                     //   / /                                 
+                    //__ / /      ___       ( )      ___      
+                   //__  /      //   ) )   / /     //   ) )   
+                  //   \\ \\     //   / /   / /     //   / /    
+                 //     \\ \\   ((___( (   / /     ((___/ /     
+        " 
+    );
+    
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let endpoint = env::var("RPC_ENDPOINT").expect("RPC_ENDPOINT must be set");
