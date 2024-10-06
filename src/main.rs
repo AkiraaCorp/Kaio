@@ -9,6 +9,8 @@ use dotenv::dotenv;
 use std::env;
 use url::Url;
 use sqlx::types::BigDecimal;
+use sqlx::postgres::PgRow;
+use sqlx::Row;
 use num_traits::cast::ToPrimitive;
 use std::str::FromStr;
 use env_logger::Env;
@@ -53,15 +55,22 @@ async fn main() {
     let transport = HttpTransport::new(rpc_url);
     let provider = JsonRpcClient::new(transport);
 
-    let contract_addresses = vec![
-        Felt::from_hex("0x00f02b88184e4b8a8b72ba0bfd294c9c9ce915b49fcc74097e30bd90623d7002")
-            .expect("Invalid contract address"),
-    ];
-
     let pool = setup_database().await;
 
+    let contract_addresses: Vec<Felt> = sqlx::query("SELECT address FROM events WHERE is_active = true")
+    .map(|row: PgRow| {
+        let address: String = row.get("address");
+        Felt::from_hex(&address).expect("Invalid Felt")
+    })
+    .fetch_all(&pool)
+    .await
+    .expect("Failed to fetch contract addresses");
+
+    let fetched_addresses = contract_addresses.iter().map(|x| x.clone()).collect::<Vec<Felt>>();
+    println!("Fetched addresses: {:?}", fetched_addresses);
+
     loop {
-        process_new_events(&provider, &contract_addresses, &pool).await;
+        process_new_events(&provider, &fetched_addresses, &pool).await;
         sleep(Duration::from_secs(10)).await;
     }
 }
