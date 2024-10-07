@@ -35,6 +35,7 @@ jobs:
           EOL
 
             pm2 describe kaio-cron > /dev/null && pm2 stop kaio-cron || echo 'Process not running'
+            cargo build --release
             pm2 start cargo run --name kaio-cron
           "
         env:
