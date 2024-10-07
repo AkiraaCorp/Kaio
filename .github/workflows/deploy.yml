@@ -1,0 +1,43 @@
+name: Deploy Kaio to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.5.1
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Deploy
+        run: |
+          ssh -o StrictHostKeyChecking=no -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST "
+          
+            if [ ! -d '/home/ubuntu/Kaio' ]; then
+              GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git@github.com:AkiraaCorp/Kaio.git /home/ubuntu/Kaio
+            else
+              cd /home/ubuntu/kaio && GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git pull origin main
+            fi
+            cd /home/ubuntu/Kaio
+
+            cat > .env <<EOL
+          DATABASE_URL=postgresql://postgres:${{ secrets.DB_PASSWORD }}@localhost:5432/sightbet
+          RPC_URL=https://starknet-sepolia.blastapi.io/05d8c1e9-70d6-41e4-a849-d2dff1e62b3b/
+          EOL
+
+            pm2 describe kaio-cron > /dev/null && pm2 stop kaio-cron || echo 'Process not running'
+            pm2 start cargo run --name kaio-cron
+          "
+        env:
+          VPS_HOST: ${{ secrets.VPS_IP }}
+          VPS_USER: ${{ secrets.VPS_USERNAME }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
