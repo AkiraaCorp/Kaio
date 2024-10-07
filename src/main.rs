@@ -80,6 +80,8 @@ async fn setup_database() -> Pool<Postgres> {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
+    println!("Database URL: {}", database_url);
+
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
