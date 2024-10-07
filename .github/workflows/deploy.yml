@@ -25,7 +25,7 @@ jobs:
             if [ ! -d '/home/ubuntu/Kaio' ]; then
               GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git@github.com:AkiraaCorp/Kaio.git /home/ubuntu/Kaio
             else
-              cd /home/ubuntu/kaio && GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git pull origin main
+              cd /home/ubuntu/Kaio && GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git pull origin main
             fi
             cd /home/ubuntu/Kaio
 
