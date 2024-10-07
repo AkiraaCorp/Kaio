@@ -31,7 +31,7 @@ jobs:
 
             cat > .env <<EOL
           DATABASE_URL=postgresql://postgres:${{ secrets.DB_PASSWORD }}@localhost:5432/sightbet
-          RPC_URL=https://starknet-sepolia.blastapi.io/05d8c1e9-70d6-41e4-a849-d2dff1e62b3b/
+          RPC_ENDPOINT=https://starknet-sepolia.blastapi.io/05d8c1e9-70d6-41e4-a849-d2dff1e62b3b/
           EOL
             rustup default stable
             pm2 describe kaio-cron > /dev/null && pm2 stop kaio-cron || echo 'Process not running'
