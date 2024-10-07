@@ -23,7 +23,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST "
           
             if [ ! -d '/home/ubuntu/Kaio' ]; then
-              GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git@github.com:AkiraaCorp/Kaio.git /home/ubuntu/Kaio
+              GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git clone git@github.com:AkiraaCorp/Kaio.git /home/ubuntu/Kaio
             else
               cd /home/ubuntu/Kaio && GIT_SSH_COMMAND='ssh -i /root/.ssh/kaio' git pull origin main
             fi
