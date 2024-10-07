@@ -36,7 +36,7 @@ jobs:
             rustup default stable
             pm2 describe kaio-cron > /dev/null && pm2 stop kaio-cron || echo 'Process not running'
             cargo build --release
-            pm2 start target/release/kaio --name kaio-cron
+            pm2 start target/release/kaio --name kaio-cron --no-autorestart
           "
         env:
           VPS_HOST: ${{ secrets.VPS_IP }}
