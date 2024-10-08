@@ -24,6 +24,7 @@ struct UserBet {
     claimable_amount: BigUint,
     user_odds: Odds,
     user_address: String,
+    timestamp: u64,
 }
 
 #[derive(Debug)]
@@ -230,6 +231,7 @@ fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
         let no_probability = data[6];
         let yes_probability = data[8];
         let user_address = data[10].to_fixed_hex_string();
+        let timestamp = data[11].to_biguint().to_u64().unwrap();
 
         let bet_bool = field_element_to_bool(bet);
         let amount = amount_felt.to_biguint();
@@ -249,6 +251,7 @@ fn parse_bet_placed_event(data: &[Felt]) -> Option<UserBet> {
                 yes_probability: yes_probability_value,
             },
             user_address,
+            timestamp: timestamp.into(),
         };
 
         Some(user_bet)
@@ -271,7 +274,10 @@ fn biguint_to_bigdecimal_scaled(value: &BigUint, scale: u32) -> BigDecimal {
     let value_str = value.to_str_radix(10);
     let big_decimal_value = BigDecimal::from_str(&value_str).unwrap();
     let scaling_factor = BigDecimal::from(10u64.pow(scale));
-    big_decimal_value / scaling_factor
+
+    let scaled_value = big_decimal_value / scaling_factor;
+
+    scaled_value.with_scale(18)
 }
 
 async fn store_event(
@@ -283,6 +289,9 @@ async fn store_event(
 ) {
     let bet:i32 = event.bet.into();
     let is_claimable = false;
+    let scaled_amount = biguint_to_bigdecimal_scaled(&event.amount, 18);
+    let scaled_claimable_amount = biguint_to_bigdecimal_scaled(&event.claimable_amount, 18);
+
     sqlx::query(
         "INSERT INTO bets (
             bet,
@@ -295,20 +304,22 @@ async fn store_event(
             user_address,
             block_number,
             transaction_hash,
+            timestamp,
             \"event_address\"
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (block_number, transaction_hash) DO NOTHING",
     )
     .bind(bet)
-    .bind(biguint_to_bigdecimal_scaled(&event.amount, 18)) 
+    .bind(scaled_amount) 
     .bind(is_claimable)    
     .bind(event.has_claimed)
-    .bind(biguint_to_bigdecimal_scaled(&event.claimable_amount, 18)) 
+    .bind(scaled_claimable_amount) 
     .bind(event.user_odds.no_probability as i64)
     .bind(event.user_odds.yes_probability as i64)
     .bind(&event.user_address)
     .bind(block_number as i64)
     .bind(transaction_hash)
+    .bind(event.timestamp as i64)
     .bind(from_address)
     .execute(pool)
     .await
