@@ -307,7 +307,7 @@ async fn store_event(
             timestamp,
             \"event_address\"
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        ON CONFLICT (block_number, transaction_hash) DO NOTHING",
+        ON CONFLICT (transaction_hash) DO NOTHING",
     )
     .bind(bet)
     .bind(scaled_amount) 
