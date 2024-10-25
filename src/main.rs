@@ -58,19 +58,20 @@ async fn main() {
 
     let pool = setup_database().await;
 
-    let contract_addresses: Vec<Felt> = sqlx::query("SELECT address FROM events WHERE is_active = true")
-    .map(|row: PgRow| {
-        let address: String = row.get("address");
-        Felt::from_hex(&address).expect("Invalid Felt")
-    })
-    .fetch_all(&pool)
-    .await
-    .expect("Failed to fetch contract addresses");
-
-    let fetched_addresses = contract_addresses.iter().map(|x| x.clone()).collect::<Vec<Felt>>();
-    println!("Fetched addresses: {:?}", fetched_addresses);
-
     loop {
+        let contract_addresses: Vec<Felt> = sqlx::query("SELECT address FROM events WHERE is_active = true")
+        .map(|row: PgRow| {
+            let address: String = row.get("address");
+            Felt::from_hex(&address).expect("Invalid Felt")
+        })
+        .fetch_all(&pool)
+        .await
+        .expect("Failed to fetch contract addresses");
+    
+        let fetched_addresses = contract_addresses.iter().map(|x| x.clone()).collect::<Vec<Felt>>();
+        println!("Fetched addresses: {:?}", fetched_addresses);
+
+        
         process_new_events(&provider, &fetched_addresses, &pool).await;
         sleep(Duration::from_secs(10)).await;
     }
