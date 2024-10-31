@@ -141,7 +141,6 @@ async fn process_new_events(
         .await
         .expect("Failed to get latest block number");
 
-    //le last block mettre direct en dur dans la DB pour le premier pour ne pas avoir a tout sync from 0
     info!("Last processed block: {}", last_processed_block);
     info!("Latest block: {}", latest_block);
 
